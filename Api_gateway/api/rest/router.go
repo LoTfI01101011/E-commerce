@@ -8,8 +8,8 @@ import (
 func Router() *chi.Mux {
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
-	r.Post("/login", LoginHundler)
-	r.Post("/register", RegisterHundler)
-	// r.Post("/logout")
+	r.Post("/api/login", LoginHundler)
+	r.Post("/api/register", RegisterHundler)
+	r.Post("/api/logout", Logout)
 	return r
 }
