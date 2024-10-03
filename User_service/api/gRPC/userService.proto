@@ -1,0 +1,35 @@
+syntax="proto3";
+package userService;
+option go_package = "github.com/LoTfI01101011/E-commerce/User_service/api/grpc/proto";
+
+service UserService{
+    rpc LoginUser(LoginRequest) returns (Token) {}
+    rpc RegisterUser(RegisterRequest) returns (Token) {}
+    rpc LogoutUser(Token) returns (LogoutResponse) {}
+    rpc CheckUserToken(Token) returns (CheckUserTokenResponse) {}
+    rpc GetUserInfo(Token) returns (GetUserInfoResponse) {}
+}
+message LoginRequest {
+    string email = 1;
+    string password = 2;
+}
+message RegisterRequest {
+    string username = 1;
+    string email = 2;
+    string password = 3;
+}
+message Token {
+    string token = 1;
+}
+message LogoutResponse{
+    string responseMessage = 1;
+}
+message CheckUserTokenResponse{
+    bool isValid = 1;
+}
+message GetUserInfoResponse{
+    string userId = 1;
+    string username = 2;
+    string email = 3;
+}
+
