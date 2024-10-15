@@ -3,6 +3,7 @@ package gRPC
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"time"
 
@@ -55,6 +56,9 @@ func (s *Server) RegisterUser(ctx context.Context, register *pb.RegisterRequest)
 	//inseting the data on the db
 	id, _ := uuid.NewV7()
 	user := models.User{ID: id, Name: register.Username, Password: string(hash), Email: register.Email}
+	if internal.DB == nil {
+		log.Fatal("Database connection is not initialized")
+	}
 	internal.DB.Create(user)
 	//generating jwt token
 	token, err := GenerateToken(id)
