@@ -11,7 +11,9 @@ import (
 func Router(user *gRPC.User) *chi.Mux {
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
-	r.Post("/api/login", LoginHundler)
+	r.Post("/api/login", func(w http.ResponseWriter, r *http.Request) {
+		LoginHundler(w, r, user)
+	})
 	r.Post("/api/register", func(w http.ResponseWriter, r *http.Request) {
 		RegisterHundler(w, r, user)
 	})

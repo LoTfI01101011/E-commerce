@@ -41,3 +41,15 @@ func (u *User) RegisterUser(name, email, password string) (string, error) {
 	}
 	return registerRes.Token, nil
 }
+func (u *User) LoginUser(email, password string) (string, error) {
+	//init user client
+	c := pb.NewUserServiceClient(u.conn)
+	//init context
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+	loginRes, err := c.LoginUser(ctx, &pb.LoginRequest{Email: email, Password: password})
+	if err != nil {
+		return "", err
+	}
+	return loginRes.Token, nil
+}

@@ -8,7 +8,7 @@ import (
 	"github.com/LoTfI01101011/E-commerce/Api_gateway/api/gRPC"
 )
 
-func LoginHundler(w http.ResponseWriter, r *http.Request) {
+func LoginHundler(w http.ResponseWriter, r *http.Request, user *gRPC.User) {
 	//get/validate the data from the request
 	var body struct {
 		Email    string `json:"email" validate:"required,email"`
@@ -17,13 +17,20 @@ func LoginHundler(w http.ResponseWriter, r *http.Request) {
 	err := json.NewDecoder(r.Body).Decode(&body)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
+		return
 	}
-
+	//send the data to the User service
+	res, err := user.LoginUser(body.Email, body.Password)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		jsonErr := map[string]error{"error": err}
+		json.NewEncoder(w).Encode(jsonErr)
+	}
+	//return the to token
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(body)
-	//send the data to the User service
-	//return the to token
+	jsonRes := map[string]string{"Token": res}
+	json.NewEncoder(w).Encode(jsonRes)
 
 }
 func RegisterHundler(w http.ResponseWriter, r *http.Request, user *gRPC.User) {
