@@ -17,6 +17,8 @@ func Router(user *gRPC.User) *chi.Mux {
 	r.Post("/api/register", func(w http.ResponseWriter, r *http.Request) {
 		RegisterHundler(w, r, user)
 	})
-	r.Post("/api/logout", Logout)
+	r.Post("/api/logout", func(w http.ResponseWriter, r *http.Request) {
+		LogoutHundler(w, r, user)
+	})
 	return r
 }

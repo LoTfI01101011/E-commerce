@@ -3,7 +3,6 @@ package rest
 import (
 	"encoding/json"
 	"net/http"
-	"strings"
 
 	"github.com/LoTfI01101011/E-commerce/Api_gateway/api/gRPC"
 )
@@ -68,14 +67,19 @@ func RegisterHundler(w http.ResponseWriter, r *http.Request, user *gRPC.User) {
 	json.NewEncoder(w).Encode(res)
 	//return the response
 }
-func Logout(w http.ResponseWriter, r *http.Request) {
+func LogoutHundler(w http.ResponseWriter, r *http.Request, user *gRPC.User) {
 	//get the token from the request header
 	token := r.Header.Get("Authorization")
-	if token == "" {
-		http.Error(w, "You have to provide a token", http.StatusBadRequest)
+
+	//call the logout function
+	res, err := user.LogoutUser(token)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		response := map[string]error{"error": err}
+		json.NewEncoder(w).Encode(response)
+		return
 	}
-	//trim the breear
-	tokenString := strings.TrimPrefix(token, "Bearer ")
-	response := map[string]string{"response": tokenString}
-	json.NewEncoder(w).Encode(response)
+
+	jsonRes := map[string]string{"response": res}
+	json.NewEncoder(w).Encode(jsonRes)
 }

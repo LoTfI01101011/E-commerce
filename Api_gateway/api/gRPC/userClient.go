@@ -53,3 +53,15 @@ func (u *User) LoginUser(email, password string) (string, error) {
 	}
 	return loginRes.Token, nil
 }
+func (u *User) LogoutUser(token string) (string, error) {
+	//init user client
+	c := pb.NewUserServiceClient(u.conn)
+	//init context
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+	logoutRes, err := c.LogoutUser(ctx, &pb.Token{Token: token})
+	if err != nil {
+		return "", err
+	}
+	return logoutRes.ResponseMessage, nil
+}

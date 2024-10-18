@@ -14,6 +14,7 @@ import (
 
 func main() {
 	internal.DbConnection()
+	internal.RedisConnection()
 	lis, err := net.Listen("tcp", ":9001")
 	if err != nil {
 		log.Fatal("fatal to listen: %w", err)

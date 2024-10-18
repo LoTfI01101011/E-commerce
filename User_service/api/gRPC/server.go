@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	pb "github.com/LoTfI01101011/E-commerce/User_service/api/gRPC/proto"
@@ -12,6 +13,7 @@ import (
 	"github.com/LoTfI01101011/E-commerce/User_service/models"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	"github.com/redis/go-redis/v9"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -26,13 +28,37 @@ func GenerateToken(userID uuid.UUID) (string, error) {
 	})
 	return token.SignedString([]byte(os.Getenv("Secret")))
 }
+func addToBlackList(ctx context.Context, token string, time time.Duration, rdb *redis.Client) error {
+	_, err := rdb.Set(ctx, token, "blacklist", time).Result()
+	return err
+}
+func CheckExparation(token string) time.Duration {
+	tok, err := jwt.Parse(token, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
+		}
+		return []byte(os.Getenv("Secret")), nil
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
 
+	claims, _ := tok.Claims.(jwt.MapClaims)
+	expFloat := claims["exp"].(float64)
+	expTime := time.Unix(int64(expFloat), 0)
+	exp := expTime.Sub(time.Now())
+	return exp
+}
 func (s *Server) LoginUser(ctx context.Context, data *pb.LoginRequest) (*pb.Token, error) {
 	//geting the user from the db
 	var user models.User
 	err := internal.DB.Where("email = ?", data.Email).Find(&user).Error
 	if err != nil {
 		return nil, fmt.Errorf("Invalid credentials")
+	}
+	if ctx.Err() != nil {
+		// Handle timeout or cancellation
+		return nil, fmt.Errorf("context error: Request timeout")
 	}
 	//chenking the password
 	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(data.Password))
@@ -60,16 +86,31 @@ func (s *Server) RegisterUser(ctx context.Context, register *pb.RegisterRequest)
 		log.Fatal("Database connection is not initialized")
 	}
 	internal.DB.Create(user)
+	if ctx.Err() != nil {
+		// Handle timeout or cancellation
+		return nil, fmt.Errorf("context error: Request timeout")
+	}
 	//generating jwt token
 	token, err := GenerateToken(id)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to generate token")
+		return nil, fmt.Errorf("failed to generate token")
 	}
 	//insert in the db
 	return &pb.Token{Token: token}, nil
 }
-func (s *Server) LogoutUser(context.Context, *pb.Token) (*pb.LogoutResponse, error) {
-	return nil, nil
+func (s *Server) LogoutUser(ctx context.Context, tkn *pb.Token) (*pb.LogoutResponse, error) {
+	//get the token
+	tokenString := strings.TrimPrefix(tkn.Token, "Bearer ")
+	//get the remaining duration still to expire the token
+	exp := CheckExparation(tokenString)
+
+	//chash the token to blacklist
+	err := addToBlackList(ctx, tokenString, exp, internal.Redis)
+	if err != nil {
+		return nil, fmt.Errorf("There was problem with redis connection")
+	}
+
+	return &pb.LogoutResponse{ResponseMessage: "you are logged out successfuly"}, nil
 }
 func (s *Server) CheckUserToken(context.Context, *pb.Token) (*pb.CheckUserTokenResponse, error) {
 	return nil, nil
