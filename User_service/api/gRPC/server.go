@@ -29,13 +29,13 @@ func GenerateToken(userID uuid.UUID) (string, error) {
 	return token.SignedString([]byte(os.Getenv("Secret")))
 }
 func addToBlackList(ctx context.Context, token string, time time.Duration, rdb *redis.Client) error {
-	_, err := rdb.Set(ctx, token, "blacklist", time).Result()
+	_, err := rdb.Set(ctx, token, "blacklisted", time).Result()
 	return err
 }
 func CheckExparation(token string) time.Duration {
 	tok, err := jwt.Parse(token, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
+			log.Fatal("Failed")
 		}
 		return []byte(os.Getenv("Secret")), nil
 	})
@@ -112,8 +112,32 @@ func (s *Server) LogoutUser(ctx context.Context, tkn *pb.Token) (*pb.LogoutRespo
 
 	return &pb.LogoutResponse{ResponseMessage: "you are logged out successfuly"}, nil
 }
-func (s *Server) CheckUserToken(context.Context, *pb.Token) (*pb.CheckUserTokenResponse, error) {
-	return nil, nil
+func (s *Server) CheckUserToken(ctx context.Context, tkn *pb.Token) (*pb.CheckUserTokenResponse, error) {
+	//trim the prefix of the token
+	tokenString := strings.TrimPrefix(tkn.Token, "Bearer ")
+	//checking if the tokne exict in the blacklist
+	isblacklisted, err := internal.Redis.Get(ctx, tokenString).Result()
+	if err == nil && isblacklisted == "blacklisted" {
+		return &pb.CheckUserTokenResponse{IsValid: false}, fmt.Errorf("the user is unauthorized")
+	}
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			log.Fatal("Unmatched method")
+		}
+
+		return []byte(os.Getenv("Secret")), nil
+	})
+	if err != nil {
+		return &pb.CheckUserTokenResponse{IsValid: false}, fmt.Errorf("failed to parse token: %v", err)
+	}
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok || !token.Valid {
+		return &pb.CheckUserTokenResponse{IsValid: false}, fmt.Errorf("invalid token claims")
+	}
+	if claims["sub"].(string) == "" {
+		return &pb.CheckUserTokenResponse{IsValid: false}, fmt.Errorf("the user is unauthorized")
+	}
+	return &pb.CheckUserTokenResponse{IsValid: true}, nil
 }
 func (s *Server) GetUserInfo(context.Context, *pb.Token) (*pb.GetUserInfoResponse, error) {
 	return nil, nil
