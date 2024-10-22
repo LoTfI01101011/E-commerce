@@ -7,6 +7,12 @@ import (
 	"github.com/LoTfI01101011/E-commerce/Api_gateway/api/gRPC"
 )
 
+type UserResponse struct {
+	UserId   string `json:"userId"`
+	Username string `json:"username"`
+	Email    string `json:"email"`
+}
+
 func LoginHundler(w http.ResponseWriter, r *http.Request, user *gRPC.User) {
 	//get/validate the data from the request
 	var body struct {
@@ -30,7 +36,6 @@ func LoginHundler(w http.ResponseWriter, r *http.Request, user *gRPC.User) {
 	w.WriteHeader(http.StatusOK)
 	jsonRes := map[string]string{"Token": res}
 	json.NewEncoder(w).Encode(jsonRes)
-
 }
 func RegisterHundler(w http.ResponseWriter, r *http.Request, user *gRPC.User) {
 	var body struct {
@@ -65,7 +70,6 @@ func RegisterHundler(w http.ResponseWriter, r *http.Request, user *gRPC.User) {
 	w.WriteHeader(http.StatusAccepted)
 	res := map[string]string{"Response": response}
 	json.NewEncoder(w).Encode(res)
-	//return the response
 }
 func LogoutHundler(w http.ResponseWriter, r *http.Request, user *gRPC.User) {
 	//get the token from the request header
@@ -79,7 +83,31 @@ func LogoutHundler(w http.ResponseWriter, r *http.Request, user *gRPC.User) {
 		json.NewEncoder(w).Encode(response)
 		return
 	}
-
+	w.WriteHeader(http.StatusOK)
 	jsonRes := map[string]string{"response": res}
 	json.NewEncoder(w).Encode(jsonRes)
+}
+func UserInfoHundler(w http.ResponseWriter, r *http.Request, user *gRPC.User) {
+	//get the token from the request header
+	token := r.Header.Get("Authorization")
+	//call the logout function
+	res, err := user.GetUserInfo(token)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		response := map[string]error{"error": err}
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	jsonRes := UserResponse{
+		UserId:   res["userID"],
+		Username: res["username"],
+		Email:    res["email"],
+	}
+	jsonResponse, err := json.MarshalIndent(jsonRes, "", "    ") // 4 spaces for indentation
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Write(jsonResponse)
 }
