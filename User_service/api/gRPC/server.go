@@ -49,6 +49,23 @@ func CheckExparation(token string) time.Duration {
 	exp := expTime.Sub(time.Now())
 	return exp
 }
+func ValidateToken(tokenString string, ctx context.Context) (jwt.MapClaims, error) {
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			log.Fatal("Unmatched method")
+		}
+
+		return []byte(os.Getenv("Secret")), nil
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok || !token.Valid {
+		return nil, fmt.Errorf("invalid token claims")
+	}
+	return claims, nil
+}
 func (s *Server) LoginUser(ctx context.Context, data *pb.LoginRequest) (*pb.Token, error) {
 	//geting the user from the db
 	var user models.User
@@ -120,25 +137,22 @@ func (s *Server) CheckUserToken(ctx context.Context, tkn *pb.Token) (*pb.CheckUs
 	if err == nil && isblacklisted == "blacklisted" {
 		return &pb.CheckUserTokenResponse{IsValid: false}, fmt.Errorf("the user is unauthorized")
 	}
-	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			log.Fatal("Unmatched method")
-		}
-
-		return []byte(os.Getenv("Secret")), nil
-	})
+	claims, err := ValidateToken(tokenString, ctx)
 	if err != nil {
-		return &pb.CheckUserTokenResponse{IsValid: false}, fmt.Errorf("failed to parse token: %v", err)
-	}
-	claims, ok := token.Claims.(jwt.MapClaims)
-	if !ok || !token.Valid {
-		return &pb.CheckUserTokenResponse{IsValid: false}, fmt.Errorf("invalid token claims")
+		return &pb.CheckUserTokenResponse{IsValid: false}, err
 	}
 	if claims["sub"].(string) == "" {
 		return &pb.CheckUserTokenResponse{IsValid: false}, fmt.Errorf("the user is unauthorized")
 	}
 	return &pb.CheckUserTokenResponse{IsValid: true}, nil
 }
-func (s *Server) GetUserInfo(context.Context, *pb.Token) (*pb.GetUserInfoResponse, error) {
-	return nil, nil
+func (s *Server) GetUserInfo(ctx context.Context, tkn *pb.Token) (*pb.GetUserInfoResponse, error) {
+	//trim The prefixe of the token
+	token := strings.TrimPrefix(tkn.Token, "Bearer ")
+	//get the claims of the token
+	claims, _ := ValidateToken(token, ctx)
+	//get the user from the db
+	var user models.User
+	internal.DB.Where("id = ?", claims["sub"].(string)).Find(&user)
+	return &pb.GetUserInfoResponse{UserId: user.ID.String(), Username: user.Name, Email: user.Email}, nil
 }
