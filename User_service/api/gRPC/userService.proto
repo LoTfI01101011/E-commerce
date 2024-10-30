@@ -1,6 +1,6 @@
 syntax="proto3";
 package userService;
-option go_package = "github.com/LoTfI01101011/E-commerce/User_service/api/grpc/proto";
+option go_package = "github.com/LoTfI01101011/E-commerce/User_service/api/gRPC/proto";
 
 service UserService{
     rpc LoginUser(LoginRequest) returns (Token) {}
